@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Groups</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    .group-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .group-item {
+      padding: 15px;
+      background-color: #f0f0f0;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .group-item:hover {
+      background-color: #e0e0e0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Your Groups</h1>
+  <div class="group-list" id="groupList">
+    <!-- Group items will be loaded here -->
+  </div>
+
+  <script>
+    const userId =  "{{ .userID }}";  
+    // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0OTI2NzcsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiI3NWE1YjQxMi00OTAwLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6Imtha2EifQ.NeWU9fSf4tN7YfAwXZKX3sZeHPO3wETVIQduKHOvSp4'
+    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0ODQyMDEsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiJiOTg3ZTgyOC00OGVjLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6InJvbmFsZG8ifQ.vkSWy0mtcyG9ZmcLT8_s5JgQnUjJ5d5bmSubfsGfhlg';
+    // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0ODQzNjYsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiIxYzA3NTNhYi00OGVkLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6Im1lc3NpIn0.VZ8ldwLD4OujC7PO0xbtIThRZArT8vkSzy4pQG7RCcg';
+    async function loadGroups() {
+      try {
+        const response = await fetch('/api/v1/group/user', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+  
+        const result = await response.json();
+  
+        if (result.status_code === 200) {
+          const groupListDiv = document.getElementById('groupList');
+          groupListDiv.innerHTML = ''; // Clear cũ nếu có
+  
+          result.data.forEach(group => {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'group-item';
+            groupDiv.innerText = group.name + ' - ' + group.description;
+            groupDiv.onclick = () => {
+              // Redirect to the chat page with groupID only (userID không cần nữa)
+              window.location.href = `/chat/${group.id}`;
+            };
+            groupListDiv.appendChild(groupDiv);
+          });
+  
+        } else {
+          alert('Failed to load groups!');
+        }
+  
+      } catch (error) {
+        console.error('Error loading groups:', error);
+        alert('Error loading groups!');
+      }
+    }
+  
+    window.onload = loadGroups;
+  </script>
+</body>
+</html>

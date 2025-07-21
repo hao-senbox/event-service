@@ -1,0 +1,1816 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .message {
+            position: relative;
+        }
+
+        .reaction-bar {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            padding: 5px 10px;
+            z-index: 3;
+            margin-bottom: 5px;
+        }
+
+        .reaction-bar.show {
+            display: flex;
+        }
+
+        .reaction-option {
+            font-size: 18px;
+            margin: 0 5px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .reaction-option:hover {
+            transform: scale(1.2);
+        }
+
+        .message-reactions {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 5px;
+            padding: 3px;
+        }
+
+        .reaction-counter {
+            background-color: rgba(0, 0, 0, 0.1);
+            padding: 2px 5px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-right: 5px;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+        }
+
+        .reaction-counter span {
+            margin-left: 3px;
+        }
+
+        .message-sent .reaction-counter {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+
+        .message-actions-container {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: -50px;
+            width: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .message-sent .message-actions-container {
+            left: -50px;
+            right: auto;
+        }
+
+        .message-actions {
+            position: relative;
+            display: none;
+        }
+
+        .message:hover .message-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .message-action-btn {
+            background-color: #e0e0e0;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        .message-action-btn:hover {
+            background-color: #d0d0d0;
+        }
+
+        .message-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            min-width: 140px;
+            z-index: 100;
+            margin-top: 5px;
+            display: none;
+            padding: 5px 0;
+        }
+
+        .message-dropdown.show {
+            display: block;
+        }
+
+        .dropdown-option {
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .dropdown-option:hover {
+            background-color: #f5f5f5;
+        }
+
+        .dropdown-option svg {
+            margin-right: 8px;
+            color: #555;
+        }
+
+        .recall-option {
+            color: #e74c3c;
+        }
+
+        .recall-option svg {
+            color: #e74c3c;
+        }
+
+        :root {
+            --primary-color: #4361ee;
+            --light-primary: #eef2ff;
+            --secondary-color: #3f37c9;
+            --success-color: #4CAF50;
+            --light-gray: #f8f9fa;
+            --medium-gray: #e9ecef;
+            --dark-gray: #6c757d;
+            --border-color: #dee2e6;
+            --sent-message: #e3f2fd;
+            --received-message: #f8f9fa;
+            --shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fb;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            box-shadow: var(--shadow);
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: white;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            z-index: 10;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+
+        .back-button {
+            background-color: transparent;
+            border: none;
+            color: var(--dark-gray);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            margin-right: 15px;
+            transition: background-color 0.2s;
+        }
+
+        .back-button:hover {
+            background-color: var(--light-gray);
+        }
+
+        .group-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        #group-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .group-status {
+            font-size: 0.8rem;
+            color: var(--dark-gray);
+        }
+
+        #chat-container {
+            margin-top: 10px;
+        }
+
+        .online-users-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            gap: 10px;
+            background-color: var(--light-gray);
+            border-radius: var(--radius);
+            margin-top: 5px;
+            font-size: 0.9rem;
+        }
+
+        #toggle-users-list {
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 7px 15px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #toggle-users-list:hover {
+            background-color: var(--light-primary);
+            border-color: var(--primary-color);
+        }
+
+        #online-users-list {
+            background-color: white;
+            border-radius: var(--radius);
+            padding: 10px;
+            margin-top: 8px;
+            box-shadow: var(--shadow);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        #online-users-list ul {
+            list-style: none;
+        }
+
+        #online-users-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #online-users-list li:last-child {
+            border-bottom: none;
+        }
+
+        .chat-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f5f7fb;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            position: relative;
+            padding: 12px 15px;
+            border-radius: var(--radius);
+            max-width: 75%;
+            box-shadow: var(--shadow);
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .message-received {
+            align-self: flex-start;
+            align-items: baseline;
+            background-color: var(--received-message);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-sent {
+            align-self: flex-end;
+            background-color: var(--sent-message);
+            border-bottom-right-radius: 4px;
+            color: #333;
+        }
+
+        .message-system {
+            align-self: center;
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--dark-gray);
+            font-size: 0.85rem;
+            padding: 8px 15px;
+            border-radius: 20px;
+            max-width: 90%;
+            text-align: center;
+            box-shadow: none;
+        }
+
+        .message-header {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .message-content {
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: right;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .timestamp {
+            font-size: 0.75rem;
+            color: var(--dark-gray);
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        .message-form {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: white;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .message-input-container {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            background-color: var(--light-gray);
+            border-radius: 24px;
+            padding: 0 15px;
+            transition: all 0.2s;
+        }
+
+        .message-input-container:focus-within {
+            background-color: white;
+            box-shadow: 0 0 0 2px var(--primary-color);
+        }
+
+        .message-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 12px 0;
+            font-size: 0.95rem;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .send-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            margin-left: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+
+        .send-button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .send-button:disabled {
+            background-color: var(--medium-gray);
+            cursor: not-allowed;
+        }
+
+        .date-divider {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            color: var(--dark-gray);
+            font-size: 0.8rem;
+        }
+
+        .date-divider::before,
+        .date-divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .date-divider::before {
+            margin-right: 10px;
+        }
+
+        .date-divider::after {
+            margin-left: 10px;
+        }
+
+        input.edit-input {
+            width: 70%;
+            margin-right: 10px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background-color: #f8fafc;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            outline: none;
+        }
+
+        .edit-input:focus {
+            border-color: #94a3b8;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+        }
+
+        .save-edit-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 6px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .save-edit-btn:hover {
+            background-color: #2563eb;
+        }
+
+        .save-edit-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .message {
+                max-width: 85%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 10px 15px;
+            }
+
+            .chat-area {
+                padding: 15px;
+            }
+
+            .message-form {
+                padding: 10px 15px;
+            }
+
+            .message {
+                max-width: 90%;
+            }
+        }
+
+        .image-button {
+            background: none;
+            border: none;
+            color: var(--dark-gray);
+            cursor: pointer;
+            padding: 8px;
+            margin-right: 8px;
+            transition: color 0.2s;
+        }
+
+        .image-button:hover {
+            color: var(--primary-color);
+        }
+
+        .message-image {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+
+        .message-image:hover {
+            opacity: 0.9;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .user-info {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .message-sent {
+            align-self: flex-end;
+        }
+
+        .message-received {
+            align-self: flex-start;
+        }
+
+        .message-sent .message-header {
+            flex-direction: row-reverse;
+        }
+
+        .message-sent .user-avatar {
+            margin-right: 0;
+            margin-left: 8px;
+        }
+
+        .image-container {
+            position: relative;
+            min-height: 100px;
+        }
+
+        .image-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .read-status {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+        }
+
+        .read-status-icon {
+            color: #3b82f6;
+            font-size: 14px;
+        }
+
+        .read-status-text {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .read-status-tooltip {
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            background-color: #1e293b;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 50;
+        }
+
+        .read-status-text:hover .read-status-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-4px);
+        }
+
+        .read-status-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            right: 10px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1e293b transparent transparent transparent;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #e2e8f0;
+            color: #475569;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .user-avatar-icon {
+            color: #64748b;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <button class="back-button" onclick="goBack()">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="group-info">
+                    <div id="group-name">Group Chat</div>
+                    <div class="group-status" id="typing-status"></div>
+                </div>
+            </div>
+            <div id="chat-container"></div>
+        </div>
+
+        <div id="chat-area" class="chat-area message-container">
+            <!-- Messages will be displayed here -->
+        </div>
+
+        <div class="message-form">
+            <div class="message-input-container">
+                <input type="text" id="message-input" class="message-input" placeholder="Type a message...">
+                <input type="file" id="image-input" accept="image/*" style="display: none;">
+                <button id="image-button" class="image-button">
+                    <i class="fas fa-image"></i>
+                </button>
+            </div>
+            <button id="send-button" class="send-button">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Cấu hình WebSocket
+            const groupID = "{{ .groupID }}";
+            let conn = null;
+            let isConnecting = false;
+            let reconnectAttempts = 0;
+            const maxReconnectAttempts = 5;
+            let currentReconnectDelay = 500; // ms
+            const maxReconnectDelay = 30000; // 30s
+            // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0OTI2NzcsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiI3NWE1YjQxMi00OTAwLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6Imtha2EifQ.NeWU9fSf4tN7YfAwXZKX3sZeHPO3wETVIQduKHOvSp4'
+            const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0ODQyMDEsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiJiOTg3ZTgyOC00OGVjLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6InJvbmFsZG8ifQ.vkSWy0mtcyG9ZmcLT8_s5JgQnUjJ5d5bmSubfsGfhlg';
+            // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0ODQzNjYsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiIxYzA3NTNhYi00OGVkLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6Im1lc3NpIn0.VZ8ldwLD4OujC7PO0xbtIThRZArT8vkSzy4pQG7RCcg'
+            // Cấu hình heartbeat
+            let heartbeatInterval = null;
+            const heartbeatTime = 55000; // 55s
+            let missedHeartbeats = 0;
+            const maxMissedHeartbeats = 3;
+            const reactionEmojis = {
+                "understand": "💡",
+                "ok": "👍",
+                "done": "✅",
+                "help": "⚠️",
+                "unclear": "❓"
+            };
+
+            function getUserIDFromToken(token) {
+                try {
+                
+                    const parts = token.split('.');
+                    if (parts.length !== 3) {
+                        throw new Error('Invalid JWT token format');
+                    }
+
+                    const payload = parts[1];
+
+                    const decoded = atob(payload);
+
+                    const claims = JSON.parse(decoded);
+                    
+                    return claims.user_id;
+                } catch (error) {
+                    console.error('Error decoding JWT token:', error);
+                    return null;
+                }
+            }
+
+            const userID = getUserIDFromToken(token);
+
+            let onlineUsers = {
+                count: 0,
+                users: []
+            };
+            // Khởi tạo
+            addVoteButton();
+            loadPreviousMessages();
+            loadInformationGroup();
+            connectWebSocket();
+            // Đăng ký sự kiện
+            $("#send-button").on("click", sendMessage);
+            $("#message-input").on("keypress", function (e) {
+                if (e.key === "Enter") sendMessage();
+            });
+            $(window).on("beforeunload", cleanupWebSocket);
+
+            // Thêm xử lý upload ảnh
+            $("#image-button").on("click", function () {
+                $("#image-input").click();
+            });
+
+            $("#image-input").on("change", function (e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("mode", "private");
+                formData.append("folder", "chat_messages");
+
+                // Gửi ảnh lên server
+                $.ajax({
+                    url: "http://localhost:8001/v1/images/upload",
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTI4NjUxNjksInJvbGVzIjoiU3VwZXJBZG1pbiIsInVzZXJfaWQiOiI2ZGQzYzJkNS00MzRiLTExZjAtOTBkNS0wMjQyYzBhODYwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvIn0.px_AQhEOYo_QqTOYMSvTxdfX1aV8TiCx3g7OPqOd1HQ"
+                    },
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function (response) {
+                        if (response.status_code === 200) {
+                            const message = {
+                                type: "message",
+                                sender_id: userID,
+                                group_id: groupID,
+                                content_type: "image",
+                                image_key: response.data.key,
+                                content: "",
+                                created_at: new Date()
+                            };
+
+                            conn.send(JSON.stringify(message));
+                        } else {
+                            displaySystemMessage("Lỗi khi tải ảnh lên");
+                        }
+                    },
+                    error: function () {
+                        displaySystemMessage("Lỗi khi tải ảnh lên");
+                    }
+                });
+            });
+    
+            // Kết nối WebSocket
+            function connectWebSocket() {
+                if (isConnecting) return;
+
+                if (conn && [WebSocket.OPEN, WebSocket.CONNECTING].includes(conn.readyState)) {
+                    cleanupWebSocket();
+                }
+
+                isConnecting = true;
+                const wsURL = `ws://localhost:8007/ws/${groupID}?token=${encodeURIComponent(token)}`;
+                try {
+                    conn = new WebSocket(wsURL);
+
+                    conn.onopen = function () {
+                        console.log("Kết nối WebSocket thành công");
+                        isConnecting = false;
+                        currentReconnectDelay = 500;
+                        enableChatInterface(true);
+                        startHeartbeat();
+                    };
+
+                    conn.onclose = function (event) {
+                        console.log(`Kết nối WebSocket đóng. Mã: ${event.code}, Lý do: ${event.reason}`);
+                        isConnecting = false;
+                        stopHeartbeat();
+
+                        if (event.code === 1000 && event.reason === "Intentional disconnect") {
+                            console.log("Đóng kết nối có chủ đích từ client");
+                            return;
+                        }
+
+                        handleReconnect();
+                    };
+
+                    conn.onerror = function (error) {
+                        console.error("Lỗi WebSocket:", error);
+                    };
+
+                    conn.onmessage = function (evt) {
+                        try {
+                            missedHeartbeats = 0;
+
+                            // Kiểm tra nếu dữ liệu là chuỗi đơn giản "pong"
+                            if (evt.data === "pong") {
+                                console.log("Nhận heartbeat pong");
+                                return;
+                            }
+
+                            // Xử lý tin nhắn JSON
+                            let messages;
+
+                            // Kiểm tra nếu evt.data chứa nhiều JSON (phân tách bởi dòng mới)
+                            if (evt.data.includes('\n')) {
+                                const jsonStrings = evt.data.split('\n').filter(str => str.trim() !== '');
+                                messages = jsonStrings.map(jsonStr => {
+                                    try {
+                                        return JSON.parse(jsonStr);
+                                    } catch (e) {
+                                        console.error("Lỗi phân tích phần tin nhắn:", e, jsonStr);
+                                        return null;
+                                    }
+                                }).filter(msg => msg !== null);
+                            } else {
+                                // Một JSON duy nhất
+                                messages = [JSON.parse(evt.data)];
+                            }
+
+                            // Xử lý từng tin nhắn đã phân tách
+                            messages.forEach(message => {
+                                console.log("Nhận tin nhắn:", message);
+                                // Các xử lý tin nhắn như trước đây...
+                                if (message.type === "online_update") {
+                                    onlineUsers.count = message.online_count;
+                                    onlineUsers.users = message.online_users || [];
+                                    updateOnlineUsersDisplay();
+                                    return;
+                                }
+
+                                if (message.type === 'edit-message') {
+                                    const $msgDiv = $(`.message[data-id='${message.id}']`);
+                                    if ($msgDiv.length) {
+                                        $msgDiv.find('.message-content').text(message.content);
+                                    }
+                                    return;
+                                }
+
+                                if (message.type === "create-vote") {
+                                    handleVoteMessage(message);
+                                    return;
+                                }
+
+                                if (message.type === 'delete-message') {
+                                    const $msgDiv = $(`.message[data-id='${message.id}']`);
+                                    if ($msgDiv.length) {
+                                        $msgDiv.find('.message-content').text("Tin nhắn đã bị thu hồi");
+                                        $msgDiv.css("opacity", "0.5");
+                                        $msgDiv.find('.message-controls').remove();
+                                    }
+                                    return;
+                                }
+
+                                if (message.type == "react-message") {
+                                    updateMessageReactions(message);
+                                    return;
+                                }
+
+                                if (message.type === "pong") {
+                                    console.log("Nhận heartbeat pong");
+                                    return;
+                                }
+
+                                if (message.error) {
+                                    console.error("Lỗi từ server:", message.error);
+                                    displaySystemMessage("Lỗi: " + message.error);
+                                    return;
+                                }
+
+                                displayMessage(message);
+                            });
+                        } catch (e) {
+                            console.error("Lỗi định dạng tin nhắn:", e);
+                            console.error("Raw message data:", evt.data);
+                        }
+                    };
+                } catch (error) {
+                    console.error("Không thể tạo kết nối WebSocket:", error);
+                    isConnecting = false;
+                    handleReconnect();
+                }
+            }
+
+            // Hàm tạo vote mới
+            function createVote(question, options, voteType = "single", endTime = null) {
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.error("WebSocket chưa kết nối");
+                    displaySystemMessage("Lỗi: Chưa kết nối đến server");
+                    return;
+                }
+
+                if (!question || question.trim() === "") {
+                    displaySystemMessage("Lỗi: Câu hỏi không được để trống");
+                    return;
+                }
+
+                if (!options || options.length < 2) {
+                    displaySystemMessage("Lỗi: Cần ít nhất 2 lựa chọn");
+                    return;
+                }
+
+                // Nếu không có endTime, mặc định là 1 giờ từ bây giờ
+                if (!endTime) {
+                    const now = new Date();
+                    now.setHours(now.getHours() + 1);
+                    endTime = now.toISOString();
+                }
+
+                const voteMessage = {
+                    type: "create-vote",
+                    group_id: groupID,
+                    sender_id: userID,
+                    vote_data: {
+                        question: question.trim(),
+                        options: options.map(opt => opt.trim()).filter(opt => opt !== ""),
+                        vote_type: voteType,
+                        end_time: endTime,
+                        is_active: true
+                    }
+                };
+
+                try {
+                    conn.send(JSON.stringify(voteMessage));
+                    console.log("Đã gửi vote:", voteMessage);
+                } catch (error) {
+                    console.error("Lỗi gửi vote:", error);
+                    displaySystemMessage("Lỗi: Không thể gửi vote");
+                }
+            }
+
+            // Hàm hiển thị form tạo vote
+            function showCreateVoteForm() {
+                const voteFormHTML = `
+        <div id="vote-form-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px;">
+                <h3>Tạo Vote Mới</h3>
+                <div style="margin-bottom: 15px;">
+                    <label>Câu hỏi:</label>
+                    <input type="text" id="vote-question" style="width: 100%; padding: 8px; margin-top: 5px;" placeholder="Nhập câu hỏi...">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label>Lựa chọn:</label>
+                    <div id="vote-options">
+                        <input type="text" class="vote-option-input" style="width: 100%; padding: 8px; margin: 5px 0;" placeholder="Lựa chọn 1">
+                        <input type="text" class="vote-option-input" style="width: 100%; padding: 8px; margin: 5px 0;" placeholder="Lựa chọn 2">
+                    </div>
+                    <button type="button" id="add-vote-option-btn" style="padding: 5px 10px; margin-top: 5px;">+ Thêm lựa chọn</button>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label>Loại vote:</label>
+                    <select id="vote-type" style="width: 100%; padding: 8px; margin-top: 5px;">
+                        <option value="single">Chọn một</option>
+                        <option value="multiple">Chọn nhiều</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label>Thời gian kết thúc:</label>
+                    <input type="datetime-local" id="vote-endtime" style="width: 100%; padding: 8px; margin-top: 5px;">
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" id="close-vote-form-btn" style="padding: 8px 15px; background: #ccc; border: none; border-radius: 4px;">Hủy</button>
+                    <button type="button" id="submit-vote-btn" style="padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px;">Tạo Vote</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+                document.body.insertAdjacentHTML('beforeend', voteFormHTML);
+
+                // Set default end time (1 hour from now)
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                const defaultEndTime = now.toISOString().slice(0, 16);
+                document.getElementById('vote-endtime').value = defaultEndTime;
+
+                // Add event listeners instead of inline onclick
+                document.getElementById('add-vote-option-btn').addEventListener('click', addVoteOption);
+                document.getElementById('close-vote-form-btn').addEventListener('click', closeVoteForm);
+                document.getElementById('submit-vote-btn').addEventListener('click', submitVote);
+            }
+
+            // Hàm thêm lựa chọn mới
+            function addVoteOption() {
+                const optionsContainer = document.getElementById('vote-options');
+                const optionCount = optionsContainer.querySelectorAll('.vote-option-input').length;
+
+                if (optionCount < 10) { // Giới hạn tối đa 10 lựa chọn
+                    const newOption = document.createElement('input');
+                    newOption.type = 'text';
+                    newOption.className = 'vote-option-input';
+                    newOption.style.cssText = 'width: 100%; padding: 8px; margin: 5px 0;';
+                    newOption.placeholder = `Lựa chọn ${optionCount + 1}`;
+                    optionsContainer.appendChild(newOption);
+                } else {
+                    alert('Tối đa 10 lựa chọn');
+                }
+            }
+
+            // Hàm đóng form vote
+            function closeVoteForm() {
+                const modal = document.getElementById('vote-form-modal');
+                if (modal) {
+                    modal.remove();
+                }
+            }
+
+            // Hàm submit vote
+            function submitVote() {
+                const question = document.getElementById('vote-question').value;
+                const voteType = document.getElementById('vote-type').value;
+                const endTimeInput = document.getElementById('vote-endtime').value;
+
+                // Thu thập tất cả options
+                const optionInputs = document.querySelectorAll('.vote-option-input');
+                const options = Array.from(optionInputs)
+                    .map(input => input.value.trim())
+                    .filter(option => option !== '');
+
+                // Chuyển đổi thời gian
+                let endTime = null;
+                if (endTimeInput) {
+                    endTime = new Date(endTimeInput).toISOString();
+                }
+
+                // Validate
+                if (!question.trim()) {
+                    alert('Vui lòng nhập câu hỏi');
+                    return;
+                }
+
+                if (options.length < 2) {
+                    alert('Cần ít nhất 2 lựa chọn');
+                    return;
+                }
+
+                // Tạo vote
+                createVote(question, options, voteType, endTime);
+
+                // Đóng form
+                closeVoteForm();
+            }
+
+            // Hàm xử lý vote nhận được từ server
+            function handleVoteMessage(message) {
+
+                // Tạo HTML cho vote
+                const voteId = message.id || Date.now();
+                const voteHTML = `
+        <div class="message vote-message" data-id="${voteId}">
+            <div class="message-header">
+                <strong>${message.sender_infor?.name || message.sender_id}</strong>
+                <span class="message-time">${new Date().toLocaleTimeString()}</span>
+            </div>
+            <div class="vote-content">
+                <h4>📊 ${message.vote.question}</h4>
+                <div class="vote-options" id="vote-options-${voteId}">
+                    ${message.vote.options.map((option, index) => `
+                        <div class="vote-option" data-option-index="${index}">
+                            <button class="vote-option-btn" data-vote-id="${voteId}" data-option-index="${index}"
+                                    style="padding: 8px 12px; margin: 5px 0; width: 100%; text-align: left; border: 1px solid #ddd; background: #f9f9f9; cursor: pointer;">
+                                ${option.text || option} (${option.vote_count || 0} votes)
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="vote-info" style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                    Loại: ${message.vote.vote_type === 'single' ? 'Chọn một' : 'Chọn nhiều'} | 
+                    Kết thúc: ${new Date(message.vote.end_time).toLocaleString()}
+                </div>
+            </div>
+        </div>
+    `;
+
+                // Thêm vào chat
+                const chatMessages = document.getElementById('messages') || document.querySelector('.messages');
+                if (chatMessages) {
+                    chatMessages.insertAdjacentHTML('beforeend', voteHTML);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                    // Add event listeners for vote buttons
+                    const voteButtons = document.querySelectorAll(`#vote-options-${voteId} .vote-option-btn`);
+                    voteButtons.forEach(btn => {
+                        btn.addEventListener('click', function () {
+                            const voteId = this.getAttribute('data-vote-id');
+                            const optionIndex = parseInt(this.getAttribute('data-option-index'));
+                            voteForOption(voteId, optionIndex);
+                        });
+                    });
+                }
+            }
+
+            // Hàm vote cho một option
+            function voteForOption(voteId, optionIndex) {
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.error("WebSocket chưa kết nối");
+                    return;
+                }
+
+                const voteMessage = {
+                    type: "vote-option",
+                    vote_id: voteId,
+                    option_index: optionIndex,
+                    user_id: userID,
+                    group_id: groupID
+                };
+
+                try {
+                    conn.send(JSON.stringify(voteMessage));
+                    console.log("Đã vote:", voteMessage);
+                } catch (error) {
+                    console.error("Lỗi khi vote:", error);
+                }
+            }
+
+            // Đảm bảo các hàm có thể truy cập global
+            window.addVoteOption = addVoteOption;
+            window.closeVoteForm = closeVoteForm;
+            window.submitVote = submitVote;
+            window.voteForOption = voteForOption;
+            window.showCreateVoteForm = showCreateVoteForm;
+            window.handleVoteMessage = handleVoteMessage;
+            window.testCreateVote = testCreateVote;
+            window.addVoteButton = addVoteButton;
+
+            function testCreateVote() {
+                const testQuestion = "Bạn thích màu gì?";
+                const testOptions = ["Đỏ", "Xanh", "Vàng", "Tím"];
+                createVote(testQuestion, testOptions, "single");
+            }
+
+            function addVoteButton() {
+                const chatInput = document.querySelector('#message-input') || document.querySelector('input[type="text"]');
+                if (chatInput && chatInput.parentElement) {
+                    const voteButton = document.createElement('button');
+                    voteButton.innerHTML = '📊 Vote';
+                    voteButton.style.cssText = 'margin-left: 10px; padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;';
+                    voteButton.onclick = showCreateVoteForm;
+                    chatInput.parentElement.appendChild(voteButton);
+                }
+            }
+            
+            function handleReconnect() {
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    console.log(`Kết nối lại (${reconnectAttempts + 1}/${maxReconnectAttempts}) sau ${currentReconnectDelay / 1000}s`);
+
+                    setTimeout(connectWebSocket, currentReconnectDelay);
+                    reconnectAttempts++;
+                    currentReconnectDelay = Math.min(currentReconnectDelay * 2, maxReconnectDelay);
+                } else {
+                    console.error("Đạt số lần kết nối lại tối đa");
+                    enableChatInterface(false);
+                }
+            }
+
+            function startHeartbeat() {
+                stopHeartbeat();
+                heartbeatInterval = setInterval(function () {
+                    if (conn && conn.readyState === WebSocket.OPEN) {
+                        try {
+                            console.log("Gửi ping heartbeat");
+                            conn.send(JSON.stringify({ type: "ping" }));
+                            missedHeartbeats++;
+
+                            if (missedHeartbeats >= maxMissedHeartbeats) {
+                                console.log("Quá nhiều heartbeat bị lỡ, kết nối lại");
+                                missedHeartbeats = 0;
+                                cleanupWebSocket();
+                                connectWebSocket();
+                            }
+                        } catch (e) {
+                            console.error("Lỗi khi gửi heartbeat:", e);
+                            cleanupWebSocket();
+                            connectWebSocket();
+                        }
+                    }
+                }, heartbeatTime);
+            }
+
+            function stopHeartbeat() {
+                if (heartbeatInterval) {
+                    clearInterval(heartbeatInterval);
+                    heartbeatInterval = null;
+                }
+            }
+
+            function cleanupWebSocket() {
+                stopHeartbeat();
+
+                if (conn && [WebSocket.OPEN, WebSocket.CONNECTING].includes(conn.readyState)) {
+                    try {
+                        conn.close(1000, "Intentional disconnect");
+                    } catch (e) {
+                        console.error("Lỗi khi đóng kết nối:", e);
+                    }
+                }
+                conn = null;
+            }
+
+            function sendMessage() {
+                const content = $("#message-input").val().trim();
+                if (!content) return;
+
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.log("WebSocket chưa kết nối, đang kết nối lại...");
+                    displaySystemMessage("Mất kết nối. Đang kết nối lại...");
+                    connectWebSocket();
+                    return;
+                }
+
+                try {
+                    conn.send(JSON.stringify({
+                        type: "message",
+                        sender_id: userID,
+                        group_id: groupID,
+                        content_type: "text",
+                        content: content,
+                        created_at: new Date(),
+                    }));
+
+                    $("#message-input").val("");
+                    missedHeartbeats = 0;
+                } catch (error) {
+                    console.error("Lỗi khi gửi tin nhắn:", error);
+                    displaySystemMessage("Không thể gửi tin nhắn. Vui lòng thử lại.");
+                    cleanupWebSocket();
+                    connectWebSocket();
+                }
+            }
+
+            function displayMessage(message) {
+                const formatted = formattedDate(message.created_at);
+                const isSent = message.sender_id === userID;
+
+                addDateDividerIfNeeded(message.created_at);
+
+                const $message = $("<div>")
+                    .addClass(`message ${isSent ? 'message-sent' : 'message-received'}`)
+                    .attr("data-id", message.id);
+
+                const $header = $("<div>")
+                    .addClass("message-header");
+
+                // Thêm avatar người dùng
+                const $avatar = $("<div>")
+                    .addClass("user-avatar")
+                    .css({
+                        "width": "32px",
+                        "height": "32px",
+                        "border-radius": "50%",
+                        "margin-right": "8px",
+                        "background-size": "cover",
+                        "background-position": "center"
+                    });
+
+                if (message.sender_infor && message.sender_infor.avatar) {
+                    $avatar.css("background-image", `url(${message.sender_infor.avatar})`);
+                } else {
+
+                    if (message.sender_infor && message.sender_infor.user_name) {
+
+                        const initial = message.sender_infor.user_name.charAt(0).toUpperCase();
+                        $avatar.text(initial);
+                    } else {
+
+                        const $icon = $('<i class="fas fa-user user-avatar-icon"></i>');
+                        $avatar.append($icon);
+                    }
+                }
+
+                const $userInfo = $("<div>")
+                    .addClass("user-info")
+                    .text(isSent ? 'Bạn' : (message.sender_infor ? message.sender_infor.user_name : 'Unknown'));
+
+                $header.append($avatar).append($userInfo);
+
+                const $content = $("<div>")
+                    .addClass("message-content");
+
+                if (message.is_delete) {
+                    $content.text("Tin nhắn đã bị thu hồi");
+                    $message.css("opacity", "0.5");
+                } else {
+                    if (message.content_type === "image" && message.image_key) {
+
+                        const $imageContainer = $("<div>")
+                            .addClass("image-container")
+                            .css({
+                                "position": "relative",
+                                "max-width": "300px",
+                                "margin-top": "5px"
+                            });
+
+                        const $loading = $("<div>")
+                            .addClass("image-loading")
+                            .html('<i class="fas fa-spinner fa-spin"></i>')
+                            .css({
+                                "position": "absolute",
+                                "top": "50%",
+                                "left": "50%",
+                                "transform": "translate(-50%, -50%)",
+                                "color": "#666"
+                            });
+
+                        const $image = $("<img>")
+                            .addClass("message-image")
+                            .attr("alt", "Image message")
+                            .css({
+                                "max-width": "100%",
+                                "border-radius": "8px",
+                                "opacity": "0"
+                            });
+
+                        $image.on("load", function () {
+                            $(this).css("opacity", "1");
+                            $loading.remove();
+                        });
+
+                        $image.on("error", function () {
+                            $(this).attr("src", "/static/images/image-error.png");
+                            $loading.remove();
+                        });
+
+                        $.ajax({
+                            url: `http://localhost:8001/v1/images/`,
+                            method: "POST",
+                            headers: {
+                                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTI4NjUxNjksInJvbGVzIjoiU3VwZXJBZG1pbiIsInVzZXJfaWQiOiI2ZGQzYzJkNS00MzRiLTExZjAtOTBkNS0wMjQyYzBhODYwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvIn0.px_AQhEOYo_QqTOYMSvTxdfX1aV8TiCx3g7OPqOd1HQ"
+                            },
+                            contentType: "application/json",
+                            data: JSON.stringify({
+                            key: message.image_key,
+                            mode: "private"
+                            }),
+                            success: function (response) {
+                                if (response.status_code === 200) {
+                                    $image.attr("src", response.data);
+                                } else {
+                                    $image.attr("src", "/static/images/image-error.png");
+                                }
+                            },
+                        });
+
+                        $imageContainer.append($loading).append($image);
+                        $content.append($imageContainer);
+                    } else {
+                        $content.text(message.content);
+                    }
+                }
+
+                const $timestamp = $("<div>")
+                    .addClass("timestamp")
+                    .text(formatted);
+
+                const $messageReactions = $("<div>")
+                    .addClass("message-reactions");
+
+                if (message.reacts && message.reacts.length > 0) {
+                    message.reacts.forEach(react => {
+                        const reactType = react.react;
+                        const totalReact = react.total_react;
+
+                        if (totalReact > 0 && reactionEmojis[reactType]) {
+                            const $reactionCounter = $("<div>")
+                                .addClass("reaction-counter")
+                                .attr("data-react-type", reactType)
+                                .attr("title", `${totalReact} người đã thả ${reactionEmojis[reactType]}`)
+                                .html(`${reactionEmojis[reactType]}<span>${totalReact}</span>`);
+                            if (react.user_reacts && react.user_reacts.length > 0) {
+                                const userList = react.user_reacts.map(user =>
+                                    user.user_infor.user_name || 'Unknown'
+                                ).join(', ');
+                                $reactionCounter.attr("data-tooltip", userList);
+                            }
+
+                            $messageReactions.append($reactionCounter);
+                        }
+                    });
+                }
+
+                const $actionsContainer = $("<div>")
+                    .addClass("message-actions-container");
+
+                const $reactionBar = $("<div>")
+                    .addClass("reaction-bar");
+
+                for (const [reactType, emoji] of Object.entries(reactionEmojis)) {
+                    const $reactionOption = $("<div>")
+                        .addClass("reaction-option")
+                        .text(emoji)
+                        .attr("data-react-type", reactType)
+                        .on("click", function () {
+                            const messageId = $(this).closest(".message").attr("data-id");
+                            const reactType = $(this).attr("data-react-type");
+                            reactToMessage(messageId, reactType);
+                            $reactionBar.removeClass("show");
+                        });
+                    $reactionBar.append($reactionOption);
+                }
+
+                const $actions = $("<div>")
+                    .addClass("message-actions");
+
+                const $actionIcon = $("<button>")
+                    .addClass("message-action-btn")
+                    .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>')
+                    .on("click", function (e) {
+                        e.stopPropagation();
+                        $(".message-dropdown").removeClass("show");
+                        $(this).next(".message-dropdown").toggleClass("show");
+                    });
+
+                const $dropdown = $("<div>")
+                    .addClass("message-dropdown");
+
+                const $reactOption = $("<div>")
+                    .addClass("dropdown-option react-option")
+                    .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"></path></svg><span>Thả cảm xúc</span>')
+                    .on("click", function (e) {
+                        e.stopPropagation();
+                        $(".reaction-bar").removeClass("show");
+                        $(this).closest(".message-actions-container").find(".reaction-bar").addClass("show");
+                        $(this).closest(".message-dropdown").removeClass("show");
+                    });
+
+                if (isSent && !message.is_delete) {
+                    const $recallOption = $("<div>")
+                        .addClass("dropdown-option recall-option")
+                        .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg><span>Thu hồi</span>')
+                        .on("click", function () {
+                            recallMessage(message.id);
+                            $(this).closest(".message-dropdown").removeClass("show");
+                        });
+                    $dropdown.append($recallOption);
+                }
+
+                $dropdown.append($reactOption);
+                $actions.append($actionIcon).append($dropdown);
+                $actionsContainer.append($reactionBar).append($actions);
+
+                $message.append($header)
+                    .append($content)
+                    .append($messageReactions)
+                    .append($timestamp)
+                    .append($actionsContainer);
+
+                $("#chat-area").append($message)
+                    .scrollTop($("#chat-area")[0].scrollHeight);
+
+                $(document).on("click", function (e) {
+                    if (!$(e.target).closest(".message-actions").length) {
+                        $(".message-dropdown").removeClass("show");
+                    }
+
+                    if (!$(e.target).closest(".reaction-bar").length && !$(e.target).hasClass("react-option")) {
+                        $(".reaction-bar").removeClass("show");
+                    }
+                });
+            }
+
+            function updateMessageReactions(reactMessage) {
+                const messageId = reactMessage.message_id;
+                const $message = $(`.message[data-id='${messageId}']`);
+
+                if (!$message.length) {
+                    console.log(`Không tìm thấy tin nhắn với ID: ${messageId}`);
+                    return;
+                }
+
+                let $messageReactions = $message.find('.message-reactions');
+
+                $messageReactions.empty();
+
+                if (reactMessage.reacts && reactMessage.reacts.length > 0) {
+                    reactMessage.reacts.forEach(react => {
+                        const reactType = react.react;
+                        const totalReact = react.total_react;
+
+                        if (totalReact > 0 && reactionEmojis[reactType]) {
+                            const $reactionCounter = $("<div>")
+                                .addClass("reaction-counter")
+                                .attr("data-react-type", reactType)
+                                .attr("title", `${totalReact} người đã thả ${reactionEmojis[reactType]}`)
+                                .html(`${reactionEmojis[reactType]}<span>${totalReact}</span>`);
+
+                            if (react.user_reacts && react.user_reacts.length > 0) {
+                                const userList = react.user_reacts.map(user =>
+                                    user.user_infor.user_name || 'Unknown'
+                                ).join(', ');
+                                $reactionCounter.attr("data-tooltip", userList);
+                            }
+
+                            $messageReactions.append($reactionCounter);
+                        }
+                    });
+                }
+            }
+
+            function addDateDividerIfNeeded(dateStr) {
+                if (!dateStr) return;
+
+                const messageDate = new Date(dateStr);
+                const dateString = messageDate.toLocaleDateString('vi-VN');
+
+                // Check if we already have this date divider
+                const existingDivider = $(`.date-divider[data-date="${dateString}"]`);
+                if (existingDivider.length === 0) {
+                    // Format the date nicely
+                    let dateText;
+                    const today = new Date();
+                    const yesterday = new Date(today);
+                    yesterday.setDate(today.getDate() - 1);
+
+                    if (messageDate.toDateString() === today.toDateString()) {
+                        dateText = "Hôm nay";
+                    } else if (messageDate.toDateString() === yesterday.toDateString()) {
+                        dateText = "Hôm qua";
+                    } else {
+                        dateText = dateString;
+                    }
+
+                    const $divider = $("<div>")
+                        .addClass("date-divider")
+                        .attr("data-date", dateString)
+                        .text(dateText);
+
+                    $("#chat-area").append($divider);
+                }
+            }
+
+            function formattedDate(inputDate) {
+                let timeText = '';
+
+                if (inputDate) {
+                    const dateObj = new Date(inputDate);
+                    timeText = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+                }
+
+                return timeText;
+            }
+
+            function displaySystemMessage(text) {
+                const $message = $("<div>")
+                    .addClass("message message-system")
+                    .text(text);
+
+                $("#chat-area").append($message)
+                    .scrollTop($("#chat-area")[0].scrollHeight);
+            }
+
+            function enableChatInterface(enable) {
+                $("#message-input").prop("disabled", !enable)
+                    .attr("placeholder", enable ? "Nhập tin nhắn..." : "Mất kết nối...");
+                $("#send-button").prop("disabled", !enable);
+
+                if (!enable) {
+                    $(".message-input-container").css("opacity", "0.7");
+                } else {
+                    $(".message-input-container").css("opacity", "1");
+                }
+            }
+
+            function loadPreviousMessages() {
+                displaySystemMessage("Đang tải tin nhắn...");
+
+                $.ajax({
+                    url: `/api/v1/chat/${groupID}`,
+                    method: "GET",
+                    headers: {
+                    "Authorization": `Bearer ${token}`
+                    },
+                    dataType: "json",
+                    success: function (data) {
+                        $("#chat-area").empty();
+                        if (data.data.data && data.data.data.length > 0) {
+                            data.data.data.slice().reverse().forEach(message => {
+                                displayMessage(message);
+                            });
+                        } else {
+                            displaySystemMessage("Chưa có tin nhắn nào");
+                        }
+                    },
+                    error: function (err) {
+                        console.error("Lỗi khi tải tin nhắn:", err);
+                        displaySystemMessage("Không thể tải tin nhắn. Vui lòng làm mới trang.");
+                    }
+                });
+            }
+
+            function loadInformationGroup() {
+                $.ajax({
+                    url: `/api/v1/group/${groupID}`,
+                    method: "GET",
+                    headers: {
+                    "Authorization": `Bearer ${token}`
+                    },
+                    dataType: "json",
+                    success: function (data) {
+                        console.log(data.data.group.name);
+                        if (data.status_code === 200) {
+                            $("#group-name").text(data.data.group.name);
+                        } else {
+                            alert('Failed to load group information!');
+                        }
+                    },
+                    error: function (err) {
+                        console.error('Error loading group information:', err);
+                        alert('Error loading group information!');
+                    }
+                });
+            }
+
+            function updateOnlineUsersDisplay() {
+                if ($("#online-users-count").length === 0) {
+                    const $onlineInfo = $("<div>")
+                        .attr("id", "online-users-container")
+                        .addClass("online-users-info");
+
+                    const $countContainer = $("<div>")
+                        .attr("id", "online-users-count")
+                        .html(`<i class="fas fa-circle" style="color: #4CAF50; font-size: 0.7rem; margin-right: 5px;"></i><strong>${onlineUsers.count}</strong> người dùng đang online`);
+
+                    const $toggleBtn = $("<button>")
+                        .attr("id", "toggle-users-list")
+                        .text("Hiển thị")
+                        .on("click", toggleOnlineUsersList);
+
+                    $onlineInfo.append($countContainer).append($toggleBtn);
+
+                    const $usersList = $("<div>")
+                        .attr("id", "online-users-list")
+                        .css("display", "none");
+
+                    $("#chat-container").prepend($onlineInfo).prepend($usersList);
+                } else {
+                    $("#online-users-count").html(`<i class="fas fa-circle" style="color: #4CAF50; font-size: 0.7rem; margin-right: 5px;"></i><strong>${onlineUsers.count}</strong> người dùng đang online`);
+                }
+                const $usersList = $("#online-users-list");
+                $usersList.empty();
+                if (onlineUsers.users.length > 0) {
+                    const $userList = $("<ul>");
+                    onlineUsers.users.forEach(user => {
+                        const isCurrentUser = user.user_id === userID;
+                        $("<li>")
+                            .html(`<i class="fas fa-circle" style="color: #4CAF50; font-size: 0.7rem; margin-right: 5px;"></i>${isCurrentUser ? `<strong>${user.user_name} (bạn)</strong>` : user.user_name}`)
+                            .appendTo($userList);
+                    });
+
+                    $usersList.append($userList);
+                } else {
+                    $usersList.text("Không có người dùng online");
+                }
+            }
+
+            function toggleOnlineUsersList() {
+                const $usersList = $("#online-users-list");
+                const $toggleBtn = $("#toggle-users-list");
+
+                if ($usersList.is(":visible")) {
+                    $usersList.slideUp(200);
+                    $toggleBtn.text("Hiển thị");
+                } else {
+                    $usersList.slideDown(200);
+                    $toggleBtn.text("Ẩn");
+                }
+            }
+
+            function recallMessage(messageId) {
+                const recallRequest = {
+                    type: "delete-message",
+                    is_delete: true,
+                    sender_id: userID,
+                    group_id: groupID,
+                    id: messageId
+                };
+
+                conn.send(JSON.stringify(recallRequest));
+
+                const $messageElement = $(`.message[data-id="${messageId}"]`);
+                if ($messageElement.length) {
+                    $messageElement.find(".message-content").text("Tin nhắn đã bị thu hồi");
+                    $messageElement.css("opacity", "0.5");
+                    $messageElement.find(".message-controls").remove();
+                }
+            }
+
+            $(document).on('dblclick', '.message-sent', function () {
+                const $msgDiv = $(this);
+                const $contentDiv = $msgDiv.find('.message-content');
+                const oldText = $contentDiv.text();
+                const messageId = $msgDiv.attr('data-id');
+
+                const $input = $('<input type="text" class="edit-input">').val(oldText);
+                const $saveBtn = $('<button class="save-edit-btn">Lưu</button>');
+
+                $contentDiv.empty().append($input).append($saveBtn);
+            });
+
+            $(document).on('click', '.save-edit-btn', function () {
+                const $msgDiv = $(this).closest('.message');
+                const $input = $msgDiv.find('.edit-input');
+                const newText = $input.val().trim();
+                const messageId = $msgDiv.attr('data-id');
+                console.log("Message ID: ", messageId);
+                if (!newText) return;
+                conn.send(JSON.stringify({
+                    type: 'edit-message',
+                    id: messageId,
+                    is_edit: true,
+                    content: newText,
+                    sender_id: userID,
+                    group_id: groupID
+                }));
+                $msgDiv.find('.message-content').text(newText);
+            });
+            function reactToMessage(messageIds, reactType) {
+
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.log("WebSocket chưa kết nối, đang kết nối lại...");
+                    displaySystemMessage("Mất kết nối. Đang kết nối lại...");
+                    connectWebSocket();
+                    return;
+                }
+
+                try {
+                    conn.send(JSON.stringify({
+                        type: "react-message",
+                        sender_id: userID,
+                        group_id: groupID,
+                        id: messageIds,
+                        react_type: reactType
+                    }));
+                    missedHeartbeats = 0;
+                } catch (error) {
+                    console.error("Lỗi khi gửi tin nhắn:", error);
+                    displaySystemMessage("Không thể gửi tin nhắn. Vui lòng thử lại.");
+                    cleanupWebSocket();
+                    connectWebSocket();
+                }
+
+            }
+            window.goBack = function () {
+                cleanupWebSocket();
+                window.location.href = "/";
+            };
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,88 @@
+GET     /api/v1/chat/:group_id
+GET     /api/v1/chat/check/:group_id
+GET     /api/v1/chat/download/:group_id
+GET     /api/v1/chat/information/user
+GET     /api/v1/chat/react/:group_id/:message_id
+
+GET     /api/v1/group
+GET     /api/v1/group/:group_id
+GET     /api/v1/group/count/keywod
+POST    /api/v1/group
+POST    /api/v1/group/generate/qrcode
+PUT     /api/v1/group/:group_id
+DELETE  /api/v1/group/:group_id
+
+POST    /api/v1/group/user
+POST    /api/v1/group/join_group/by_qrcode
+GET     /api/v1/group/user
+DELETE  /api/v1/group/user/:group_id
+
+func (h *Hub) createAndBroadcastVote(msg Message) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	objectGroupID, err := primitive.ObjectIDFromHex(msg.GroupID)
+	if err != nil {
+		log.Printf("Error converting group ID to ObjectID: %v", err)
+		h.incrementErrorCount()
+		return
+	}
+
+	convertEndTIme, err := time.Parse(time.RFC3339, msg.VoteData.EndTime)
+	if err != nil {
+		log.Printf("Error parsing end time: %v", err)
+		h.incrementErrorCount()
+		return
+	}
+
+	dbVote := models.Vote{
+		GroupID:   objectGroupID,
+		CreatedBy: msg.SenderID,
+		Question:  msg.VoteData.Question,
+		Options:   []models.VoteOption{},
+		VoteType:  msg.VoteData.VoteType,
+		EndTime:   convertEndTIme,
+		IsActive:  msg.VoteData.IsActive,
+	}
+
+	for _, optionText := range msg.VoteData.Options {
+		dbVote.Options = append(dbVote.Options, models.VoteOption{
+			Text:      optionText,
+			VoteBy:    []string{},
+			VoteCount: 0,
+		})
+	}
+
+	idVote, err := h.voteService.InsertVote(ctx, &dbVote)
+	if err != nil {
+		log.Printf("Error inserting vote: %v", err)
+		h.incrementErrorCount()
+		return
+	}
+
+	dbMessage := models.Message{
+		VoteID:     &idVote,
+		GroupID:    objectGroupID,
+		SenderID:   msg.SenderID,
+		ContenType: "vote",
+	}
+
+	_, err = h.messageService.SaveMessage(ctx, &dbMessage)
+	if err != nil {
+		log.Printf("Error inserting message: %v", err)
+		h.incrementErrorCount()
+		return
+	}
+
+	res := map[string]interface{}{
+		"type":         msg.Type,
+		"group_id":     msg.GroupID,
+		"sender_id":    msg.SenderID,
+		"sender_infor": msg.SenderInfo,
+		"vote":         msg.VoteData,
+	}
+
+	updatedMessage, _ := json.Marshal(res)
+	h.sendToGroup(msg.GroupID, updatedMessage)
+
+}
