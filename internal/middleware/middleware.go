@@ -1,14 +1,12 @@
-package api
+package middleware
 
 import (
 	"event-service/pkg/constants"
 	"net/http"
 	"strings"
-
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
-
 
 func Secured() gin.HandlerFunc {
 	return func(context *gin.Context) {
@@ -36,31 +34,5 @@ func Secured() gin.HandlerFunc {
 
 		context.Set(constants.Token, tokenString)
 		context.Next()
-	}
-}
-
-func WebsocketSecured() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		
-		token := c.Query(constants.Token)
-
-		if len(token) == 0 {
-			c.AbortWithStatus(http.StatusForbidden)
-			return
-		}
-
-		t, _, _ := new(jwt.Parser).ParseUnverified(token, jwt.MapClaims{})
-
-		if claims, ok := t.Claims.(jwt.MapClaims); ok {
-			if userId, ok := claims[constants.UserID].(string); ok {
-				c.Set(constants.UserID, userId)
-			} else {
-				c.AbortWithStatus(http.StatusForbidden)
-				return
-			}
-		}
-
-		c.Set(constants.Token, token)
-		c.Next()
 	}
 }
