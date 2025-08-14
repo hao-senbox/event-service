@@ -11,5 +11,6 @@ func RegisterRoutes(r *gin.Engine, handler *EventHandler) {
 	{
 		eventGroup.POST("/", handler.CreateEvent)
 		eventGroup.GET("/", handler.GetAllEvents)
+		eventGroup.POST("/trigger", handler.SendEventNotifications)
 	}
 }

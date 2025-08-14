@@ -6,13 +6,15 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type EventRepository interface {
 	Create(ctx context.Context, event *Event) error
 	FindEventActive(ctx context.Context) ([]*Event, error)
-	FindAllEvents(ctx context.Context) ([]*Event, error)
+	FindAllEvents(ctx context.Context, userID string) ([]*Event, error)
+	FindEventByID(ctx context.Context, eventID primitive.ObjectID) (*Event, error)
 }
 
 type eventRepository struct {
@@ -78,11 +80,11 @@ func (e *eventRepository) FindEventActive(ctx context.Context) ([]*Event, error)
 	return events, nil
 }
 
-func (e *eventRepository) FindAllEvents(ctx context.Context) ([]*Event, error) {
+func (e *eventRepository) FindAllEvents(ctx context.Context, userID string) ([]*Event, error) {
 
 	var events []*Event
-
-	cursor, err := e.collection.Find(ctx, bson.M{})
+	
+	cursor, err := e.collection.Find(ctx, bson.M{"user_id": userID})
 	if err != nil {
 		return nil, err
 	}
@@ -93,4 +95,20 @@ func (e *eventRepository) FindAllEvents(ctx context.Context) ([]*Event, error) {
 
 	return events, nil
 
+}
+
+func (e *eventRepository) FindEventByID(ctx context.Context, eventID primitive.ObjectID) (*Event, error) {
+
+	var event Event
+
+	err := e.collection.FindOne(ctx, bson.M{"_id": eventID}).Decode(&event)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err	
+	}
+
+	return &event, err
+	
 }

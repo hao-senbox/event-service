@@ -10,3 +10,7 @@ type CreateEventRequest struct {
 	Schedule  ScheduleSettings `json:"schedule"`
 	Media     Media            `json:"media"`
 }
+
+type TriggerEventRequest struct {
+	EventID   string `json:"event_id"`
+}

@@ -10,8 +10,8 @@ type Event struct {
 	ID        primitive.ObjectID `bson:"_id" json:"id"`
 	UserID    string             `bson:"user_id" json:"user_id"`
 	EventName string             `bson:"event_name" json:"event_name"`
-	StartDate time.Time             `bson:"start_date" json:"start_date"`
-	EndDate   time.Time             `bson:"end_date" json:"end_date"`
+	StartDate time.Time          `bson:"start_date" json:"start_date"`
+	EndDate   time.Time          `bson:"end_date" json:"end_date"`
 	Active    bool               `bson:"active" json:"active"`
 	Reminders Reminders          `bson:"reminders" json:"reminders"`
 	Schedule  ScheduleSettings   `bson:"schedule" json:"schedule"`

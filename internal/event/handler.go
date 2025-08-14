@@ -1,7 +1,10 @@
 package event
 
 import (
+	"context"
 	"event-service/helper"
+	"event-service/pkg/constants"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +41,13 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 
 func (h *EventHandler) GetAllEvents(c *gin.Context) {
 
-	events, err := h.eventService.GetAllEvents(c)
+	userID := c.Query("user_id")
+	if userID == "" {
+		helper.SendError(c, http.StatusBadRequest, fmt.Errorf("user_id is required"), helper.ErrInvalidRequest)
+		return
+	}
+
+	events, err := h.eventService.GetAllEvents(c, userID)
 	if err != nil {
 		helper.SendError(c, http.StatusInternalServerError, err, helper.ErrInvalidOperation)
 		return
@@ -46,4 +55,30 @@ func (h *EventHandler) GetAllEvents(c *gin.Context) {
 
 	helper.SendSuccess(c, http.StatusOK, "success", events)
 
+}
+
+func (h *EventHandler) SendEventNotifications(c *gin.Context) {
+
+	var req TriggerEventRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		helper.SendError(c, http.StatusBadRequest, err, helper.ErrInvalidRequest)
+		return
+	}
+
+	token, exists := c.Get(constants.Token)
+	if !exists {
+		helper.SendError(c, 400, fmt.Errorf("token not found"), helper.ErrInvalidRequest)
+		return
+	}
+	
+	ctx := context.WithValue(c, constants.TokenKey, token)
+
+	err := h.eventService.SendEventNotifications(ctx, &req)
+	if err != nil {
+		helper.SendError(c, http.StatusInternalServerError, err, helper.ErrInvalidOperation)
+		return
+	}
+
+	helper.SendSuccess(c, http.StatusOK, "success", nil)
 }
