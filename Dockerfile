@@ -35,7 +35,7 @@ RUN chmod +x /wait-for-it.sh
 
 COPY ./credentials /root/credentials
 # Expose the necessary port
-EXPOSE 8000
+EXPOSE 8015
 
 # Set the entrypoint to wait for MariaDB to be ready before starting the application
 CMD ["/wait-for-it.sh", "event_db:27017", "--", "./api"] 
