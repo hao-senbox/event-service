@@ -1,3 +1,20 @@
+# Official Go Alpine Base Image for building the application
+FROM golang:1.24-alpine AS builder
+
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy the Go modules files and download dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the entire source code into the container
+COPY . .
+
+# Build the Go binary
+RUN go build -o api cmd/server/main.go
+
 # Final Image Creation Stage using a lightweight Alpine image
 FROM alpine:3.21
 
