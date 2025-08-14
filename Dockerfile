@@ -1,6 +1,7 @@
 # Official Go Alpine Base Image for building the application
 FROM golang:1.24-alpine AS builder
 
+RUN apk add --no-cache tzdata
 # Set the working directory inside the container
 WORKDIR /app
 
