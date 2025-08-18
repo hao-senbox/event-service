@@ -21,6 +21,11 @@ type EventService interface {
 	CreateEvent(ctx context.Context, req *CreateEventRequest) error
 	CronEventNotifications(ctx context.Context) error
 	GetAllEvents(ctx context.Context, userID string) ([]*Event, error)
+	GetEventByID(ctx context.Context, eventID string) (*Event, error)
+	UpdateEvent(ctx context.Context, req *UpdateEventRequest, id string) error
+	DeleteEvent(ctx context.Context, id string) error
+	ToggleSendEventNotifications(ctx context.Context, id string) (string, error)
+	ToggleShowEventNotifications(ctx context.Context, id string) (string, error)
 	SendEventNotifications(ctx context.Context, req *TriggerEventRequest) error
 }
 
@@ -39,7 +44,7 @@ func NewEventService(repo EventRepository, fb *firebase.App, us user.UserService
 		log.Printf("⚠️ Failed to load timezone, using UTC: %v", err)
 		loc = time.UTC
 	}
-	
+
 	return &eventService{
 		eventRepository: repo,
 		fireBase:        fb,
@@ -76,17 +81,18 @@ func (s *eventService) CreateEvent(ctx context.Context, req *CreateEventRequest)
 		return errors.New("end date must be after start date")
 	}
 
-	if req.Schedule.Expiration < 1 || req.Schedule.Expiration > 20 { 
-		req.Schedule.Expiration = 1 
+	if req.Schedule.Expiration < 1 || req.Schedule.Expiration > 20 {
+		req.Schedule.Expiration = 1
 	}
 
 	event := &Event{
 		ID:        primitive.NewObjectID(),
 		UserID:    req.UserID,
 		EventName: req.EventName,
-		StartDate: start.UTC(), 
-		EndDate:   end.UTC(),  
-		Active:    true,
+		StartDate: start.UTC(),
+		EndDate:   end.UTC(),
+		IsShow:    true,
+		IsSend:    true,
 		Reminders: Reminders{
 			ReminderTime:   req.Reminders.ReminderTime,
 			Message:        req.Reminders.Message,
@@ -99,9 +105,11 @@ func (s *eventService) CreateEvent(ctx context.Context, req *CreateEventRequest)
 			Expiration: req.Schedule.Expiration,
 		},
 		Media: Media{
-			EventPicture: req.Media.EventPicture,
-			Url:          req.Media.Url,
+			EventIcon: req.Media.EventIcon,
+			Url:       req.Media.Url,
 		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	return s.eventRepository.Create(ctx, event)
@@ -141,8 +149,8 @@ func (s *eventService) shouldSendNotification(event *Event, currentTime time.Tim
 		return false
 	}
 
-	if !event.Active {
-		log.Printf("⏸️  Event %s: event not active", event.EventName)
+	if !event.IsSend {
+		log.Printf("⏸️  Event %s: event not send", event.EventName)
 		return false
 	}
 
@@ -191,47 +199,76 @@ func (s *eventService) shouldSendNotification(event *Event, currentTime time.Tim
 }
 
 func (s *eventService) checkHourlySchedule(currentTime time.Time, minutesBeforeEvent int64, startDate time.Time, schedule ScheduleSettings, eventName string) bool {
+	dayMap := map[string]time.Weekday{
+		"sunday": time.Sunday, "monday": time.Monday, "tuesday": time.Tuesday,
+		"wednesday": time.Wednesday, "thursday": time.Thursday,
+		"friday": time.Friday, "saturday": time.Saturday,
+	}
 
-	eventStartTime := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(),
-		currentTime.Hour(), startDate.Minute(), startDate.Second(), 0, s.location)
+	currentWeekday := currentTime.Weekday()
+	log.Printf("📅 Event %s: current weekday = %s, checking days: %v",
+		eventName, currentWeekday.String(), schedule.Day)
 
-	reminderTime := eventStartTime.Add(-time.Duration(minutesBeforeEvent) * time.Minute)
-	targetTime := time.Date(reminderTime.Year(), reminderTime.Month(), reminderTime.Day(),
-		reminderTime.Hour(), reminderTime.Minute(), 0, 0, s.location)
+	for _, dayStr := range schedule.Day {
+		if targetDay, ok := dayMap[strings.ToLower(dayStr)]; ok {
+			if currentWeekday == targetDay {
+				eventStartTime := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(),
+					currentTime.Hour(), startDate.Minute(), startDate.Second(), 0, s.location)
 
-	log.Printf("🔄 Event %s: hourly check - current hour: %d, event time: %s, reminder time: %s",
-		eventName, currentTime.Hour(), eventStartTime.Format("15:04:05"), targetTime.Format("15:04:05"))
+				reminderTime := eventStartTime.Add(-time.Duration(minutesBeforeEvent) * time.Minute)
+				targetTime := time.Date(reminderTime.Year(), reminderTime.Month(), reminderTime.Day(),
+					reminderTime.Hour(), reminderTime.Minute(), 0, 0, s.location)
 
-	return s.isTimeMatch(currentTime, targetTime, schedule.Expiration, eventName)
+				log.Printf("🔄 Event %s: hourly check - current hour: %d, event time: %s, reminder time: %s",
+					eventName, currentTime.Hour(), eventStartTime.Format("15:04:05"), targetTime.Format("15:04:05"))
+
+				return s.isTimeMatch(currentTime, targetTime, schedule.Expiration, eventName)
+			}
+		}
+	}
+	return false
 }
 
 func (s *eventService) checkEvery2HoursSchedule(currentTime time.Time, minutesBeforeEvent int64, startDate time.Time, schedule ScheduleSettings, eventName string) bool {
-
-	if currentTime.Hour()%2 != 0 {
-		return false
+	dayMap := map[string]time.Weekday{
+		"sunday": time.Sunday, "monday": time.Monday, "tuesday": time.Tuesday,
+		"wednesday": time.Wednesday, "thursday": time.Thursday,
+		"friday": time.Friday, "saturday": time.Saturday,
 	}
 
-	eventStartTime := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(),
-		currentTime.Hour(), startDate.Minute(), startDate.Second(), 0, s.location)
+	currentWeekday := currentTime.Weekday()
+	for _, dayStr := range schedule.Day {
+		if targetDay, ok := dayMap[strings.ToLower(dayStr)]; ok {
+			if currentWeekday == targetDay {
+				if currentTime.Hour()%2 != 0 {
+					return false
+				}
 
-	reminderTime := eventStartTime.Add(-time.Duration(minutesBeforeEvent) * time.Minute)
-	targetTime := time.Date(reminderTime.Year(), reminderTime.Month(), reminderTime.Day(),
-		reminderTime.Hour(), reminderTime.Minute(), 0, 0, s.location)
+				eventStartTime := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(),
+					currentTime.Hour(), startDate.Minute(), startDate.Second(), 0, s.location)
 
-	log.Printf("🔄 Event %s: every 2 hours check - current hour: %d, event time: %s, reminder time: %s",
-		eventName, currentTime.Hour(), eventStartTime.Format("15:04:05"), targetTime.Format("15:04:05"))
+				reminderTime := eventStartTime.Add(-time.Duration(minutesBeforeEvent) * time.Minute)
+				targetTime := time.Date(reminderTime.Year(), reminderTime.Month(), reminderTime.Day(),
+					reminderTime.Hour(), reminderTime.Minute(), 0, 0, s.location)
 
-	return s.isTimeMatch(currentTime, targetTime, schedule.Expiration, eventName)
+				log.Printf("🔄 Event %s: every 2 hours check - current hour: %d, event time: %s, reminder time: %s",
+					eventName, currentTime.Hour(), eventStartTime.Format("15:04:05"), targetTime.Format("15:04:05"))
+
+				return s.isTimeMatch(currentTime, targetTime, schedule.Expiration, eventName)
+			}
+		}
+	}
+	return false
 }
 
 func (s *eventService) checkDailySchedule(currentTime time.Time, minutesBeforeEvent int64, startDate time.Time, schedule ScheduleSettings, eventName string) bool {
 	eventStartTime := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(),
 		startDate.Hour(), startDate.Minute(), startDate.Second(), 0, s.location)
-	
+
 	reminderTime := eventStartTime.Add(-time.Duration(minutesBeforeEvent) * time.Minute)
 	targetTime := time.Date(reminderTime.Year(), reminderTime.Month(), reminderTime.Day(),
 		reminderTime.Hour(), reminderTime.Minute(), 0, 0, s.location)
-	
+
 	return s.isTimeMatch(currentTime, targetTime, schedule.Expiration, eventName)
 }
 
@@ -271,11 +308,9 @@ func (s *eventService) checkMonthlySchedule(currentTime time.Time, minutesBefore
 	for _, dayStr := range schedule.Day {
 		if day, err := strconv.Atoi(dayStr); err == nil && day >= 1 && day <= 31 {
 			if currentDay == day {
-				// Handle month-end edge cases (e.g., day 31 in February)
 				eventStartTime := time.Date(currentTime.Year(), currentTime.Month(), day,
 					startDate.Hour(), startDate.Minute(), startDate.Second(), 0, s.location)
-				
-				// Check if the day actually exists in current month
+
 				if eventStartTime.Day() == day {
 					reminderTime := eventStartTime.Add(-time.Duration(minutesBeforeEvent) * time.Minute)
 					targetTime := time.Date(reminderTime.Year(), reminderTime.Month(), reminderTime.Day(),
@@ -293,11 +328,11 @@ func (s *eventService) checkMonthlySchedule(currentTime time.Time, minutesBefore
 func (s *eventService) checkYearlySchedule(currentTime time.Time, minutesBeforeEvent int64, startDate time.Time, schedule ScheduleSettings, eventName string) bool {
 	eventStartTime := time.Date(currentTime.Year(), startDate.Month(), startDate.Day(),
 		startDate.Hour(), startDate.Minute(), startDate.Second(), 0, s.location)
-	
+
 	reminderTime := eventStartTime.Add(-time.Duration(minutesBeforeEvent) * time.Minute)
 	targetTime := time.Date(reminderTime.Year(), reminderTime.Month(), reminderTime.Day(),
 		reminderTime.Hour(), reminderTime.Minute(), 0, 0, s.location)
-	
+
 	return s.isTimeMatch(currentTime, targetTime, schedule.Expiration, eventName)
 }
 
@@ -382,12 +417,207 @@ func (s *eventService) getNotificationMessage(event *Event) string {
 }
 
 func (s *eventService) GetAllEvents(ctx context.Context, userID string) ([]*Event, error) {
-	
+
 	if userID == "" {
 		return nil, errors.New("user_id is required")
 	}
 
 	return s.eventRepository.FindAllEvents(ctx, userID)
+}
+
+func (s *eventService) GetEventByID(ctx context.Context, eventID string) (*Event, error) {
+
+	if eventID == "" {
+		return nil, errors.New("event_id is required")
+	}
+
+	objID, err := primitive.ObjectIDFromHex(eventID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.eventRepository.FindEventByID(ctx, objID)
+
+}
+
+func (s *eventService) UpdateEvent(ctx context.Context, req *UpdateEventRequest, id string) error {
+
+	if id == "" {
+		return errors.New("event_id is required")
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	event, err := s.eventRepository.FindEventByID(ctx, objectID)
+	if err != nil {
+		return err
+	}
+
+	if event == nil {
+		return errors.New("event not found")
+	}
+
+	if req.EventName != nil {
+		event.EventName = *req.EventName
+	}
+
+	if req.StartDate != nil {
+		candidateStart, err := time.ParseInLocation("2006-01-02 15:04:05", *req.StartDate, s.location)
+		if err != nil {
+			return fmt.Errorf("invalid start date: %v", err)
+		}
+		event.StartDate = candidateStart.UTC()
+	}
+
+	if req.EndDate != nil {
+		candidateEnd, err := time.ParseInLocation("2006-01-02 15:04:05", *req.EndDate, s.location)
+		if err != nil {
+			return fmt.Errorf("invalid end date: %v", err)
+		}
+		event.EndDate = candidateEnd.UTC()
+	}
+
+	if event.EndDate.Before(event.StartDate) {
+		return errors.New("end date must be after start date")
+	}
+
+	if req.Reminders != nil {
+		if req.Reminders.ReminderTime != nil {
+			event.Reminders.ReminderTime = *req.Reminders.ReminderTime
+		}
+		if req.Reminders.Message != nil {
+			event.Reminders.Message = req.Reminders.Message
+		}
+		if req.Reminders.ActiveReminder != nil {
+			event.Reminders.ActiveReminder = *req.Reminders.ActiveReminder
+		}
+	}
+
+	if req.Schedule != nil {
+		if req.Schedule.Sound != nil {
+			event.Schedule.Sound = *req.Schedule.Sound
+		}
+		if req.Schedule.Repeat != nil {
+			event.Schedule.Repeat = *req.Schedule.Repeat
+		}
+		if req.Schedule.Day != nil {
+			event.Schedule.Day = *req.Schedule.Day
+		}
+		if req.Schedule.Expiration != nil {
+			exp := *req.Schedule.Expiration
+			if exp < 1 || exp > 20 {
+				exp = 1
+			}
+			event.Schedule.Expiration = exp
+		}
+	}
+
+	if req.Media != nil {
+		if req.Media.EventIcon != nil {
+			event.Media.EventIcon = *req.Media.EventIcon
+		}
+		if req.Media.Url != nil {
+			event.Media.Url = *req.Media.Url
+		}
+	}
+
+	event.UpdatedAt = time.Now()
+
+	return s.eventRepository.UpdateEvent(ctx, event, objectID)
+
+}
+
+func (s *eventService) DeleteEvent(ctx context.Context, id string) error {
+
+	if id == "" {
+		return errors.New("event_id is required")
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	return s.eventRepository.DeleteEvent(ctx, objectID)
+
+}
+
+func (s *eventService) ToggleSendEventNotifications(ctx context.Context, id string) (string, error) {
+
+	var check string
+	if id == "" {
+		return "", errors.New("event_id is required")
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return "", err
+	}
+
+	event, err := s.eventRepository.FindEventByID(ctx, objectID)
+	if err != nil {
+		return "", err
+	}
+
+	if event == nil {
+		return "", errors.New("event not found")
+	}
+
+	if event.IsSend {
+		event.IsSend = false
+		check = "off"
+	} else {
+		event.IsSend = true
+		check = "on"
+	}
+
+	err = s.eventRepository.UpdateEvent(ctx, event, objectID)
+	if err != nil {
+		return "", err
+	}
+
+	return check, nil
+}
+
+func (s *eventService) ToggleShowEventNotifications(ctx context.Context, id string) (string, error) {
+
+	var check string
+
+	if id == "" {
+		return "", errors.New("event_id is required")
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return "", err
+	}
+
+	event, err := s.eventRepository.FindEventByID(ctx, objectID)
+	if err != nil {
+		return "", err
+	}
+
+	if event == nil {
+		return "", errors.New("event not found")
+	}
+
+	if event.IsShow {
+		event.IsShow = false
+		check = "off"
+	} else {
+		event.IsShow = true
+		check = "on"
+	}
+
+	err = s.eventRepository.UpdateEvent(ctx, event, objectID)
+	if err != nil {
+		return "", err
+	}
+
+	return check, nil
 }
 
 func (s *eventService) SendEventNotifications(ctx context.Context, req *TriggerEventRequest) error {
@@ -411,6 +641,6 @@ func (s *eventService) SendEventNotifications(ctx context.Context, req *TriggerE
 	}
 
 	s.sendNotification(ctx, event)
-	
+
 	return nil
 }

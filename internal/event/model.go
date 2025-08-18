@@ -12,10 +12,13 @@ type Event struct {
 	EventName string             `bson:"event_name" json:"event_name"`
 	StartDate time.Time          `bson:"start_date" json:"start_date"`
 	EndDate   time.Time          `bson:"end_date" json:"end_date"`
-	Active    bool               `bson:"active" json:"active"`
+	IsShow    bool               `bson:"is_show" json:"is_show"`
+	IsSend    bool               `bson:"is_send" json:"is_send"`
 	Reminders Reminders          `bson:"reminders" json:"reminders"`
 	Schedule  ScheduleSettings   `bson:"schedule" json:"schedule"`
 	Media     Media              `bson:"media" json:"media"`
+	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
 }
 
 type Reminders struct {
@@ -32,7 +35,7 @@ type ScheduleSettings struct {
 }
 
 type Media struct {
-	EventPicture string `bson:"event_picture" json:"event_picture"`
+	EventIcon string `bson:"event_icon" json:"event_icon"`
 	QrCode       string `bson:"qr_code" json:"qr_code"`
 	Url          string `bson:"url" json:"url"`
 }

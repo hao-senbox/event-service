@@ -15,6 +15,8 @@ type EventRepository interface {
 	FindEventActive(ctx context.Context) ([]*Event, error)
 	FindAllEvents(ctx context.Context, userID string) ([]*Event, error)
 	FindEventByID(ctx context.Context, eventID primitive.ObjectID) (*Event, error)
+	UpdateEvent(ctx context.Context, event *Event, id primitive.ObjectID) error
+	DeleteEvent(ctx context.Context, id primitive.ObjectID) error
 }
 
 type eventRepository struct {
@@ -47,7 +49,7 @@ func (e *eventRepository) FindEventActive(ctx context.Context) ([]*Event, error)
 	fmt.Printf("🔍 Current UTC time: %s\n", now.Format("2006-01-02 15:04:05"))
 
 	filter := bson.M{
-		"active":                    true,
+		"is_send":                   true,
 		"reminders.active_reminder": true,
 		"end_date": bson.M{
 			"$gte": now,
@@ -76,14 +78,14 @@ func (e *eventRepository) FindEventActive(ctx context.Context) ([]*Event, error)
 	}
 
 	fmt.Printf("✅ Found %d matching events\n", len(events))
-	
+
 	return events, nil
 }
 
 func (e *eventRepository) FindAllEvents(ctx context.Context, userID string) ([]*Event, error) {
 
 	var events []*Event
-	
+
 	cursor, err := e.collection.Find(ctx, bson.M{"user_id": userID})
 	if err != nil {
 		return nil, err
@@ -106,9 +108,30 @@ func (e *eventRepository) FindEventByID(ctx context.Context, eventID primitive.O
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
-		return nil, err	
+		return nil, err
 	}
 
 	return &event, err
+
+}
+
+func (e *eventRepository) UpdateEvent(ctx context.Context, event *Event, id primitive.ObjectID) error {
+
+	_, err := e.collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": event})
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func (e *eventRepository) DeleteEvent(ctx context.Context, id primitive.ObjectID) error {
+
+	_, err := e.collection.DeleteOne(ctx, bson.M{"_id": id})
+	if err != nil {
+		return err
+	}
+
+	return nil
 	
 }

@@ -57,6 +57,86 @@ func (h *EventHandler) GetAllEvents(c *gin.Context) {
 
 }
 
+func (h *EventHandler) GetEventByID(c *gin.Context) {
+
+	id := c.Param("id")
+
+	event, err := h.eventService.GetEventByID(c, id)
+	if err != nil {
+		helper.SendError(c, http.StatusInternalServerError, err, helper.ErrInvalidOperation)
+		return
+	}
+
+	helper.SendSuccess(c, http.StatusOK, "success", event)
+
+}
+
+func (h *EventHandler) UpdateEvent(c *gin.Context) {
+
+	id := c.Param("id")
+
+	if id == "" {
+		helper.SendError(c, http.StatusBadRequest, fmt.Errorf("id is required"), helper.ErrInvalidRequest)
+		return
+	}
+
+	var req UpdateEventRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		helper.SendError(c, http.StatusBadRequest, err, helper.ErrInvalidRequest)
+		return
+	}
+
+	err := h.eventService.UpdateEvent(c, &req, id)
+	if err != nil {
+		helper.SendError(c, http.StatusInternalServerError, err, helper.ErrInvalidOperation)
+		return
+	}
+
+	helper.SendSuccess(c, http.StatusOK, "success", nil)
+}
+
+func (h *EventHandler) DeleteEvent(c *gin.Context) {
+
+	id := c.Param("id")
+
+	err := h.eventService.DeleteEvent(c, id)
+	if err != nil {
+		helper.SendError(c, http.StatusInternalServerError, err, helper.ErrInvalidOperation)
+		return
+	}
+
+	helper.SendSuccess(c, http.StatusOK, "success", nil)
+}
+
+func (h *EventHandler) ToggleSendEventNotifications(c *gin.Context) {
+
+	id := c.Param("id")
+
+	check, err := h.eventService.ToggleSendEventNotifications(c, id)
+	if err != nil {
+		helper.SendError(c, http.StatusInternalServerError, err, helper.ErrInvalidOperation)
+		return
+	}
+
+	helper.SendSuccess(c, http.StatusOK, "success", check)
+
+}
+
+func (h *EventHandler) ToggleShowEventNotifications(c *gin.Context) {
+
+	id := c.Param("id")
+
+	check, err := h.eventService.ToggleShowEventNotifications(c, id)
+	if err != nil {
+		helper.SendError(c, http.StatusInternalServerError, err, helper.ErrInvalidOperation)
+		return
+	}
+
+	helper.SendSuccess(c, http.StatusOK, "success", check)
+
+}
+
 func (h *EventHandler) SendEventNotifications(c *gin.Context) {
 
 	var req TriggerEventRequest
