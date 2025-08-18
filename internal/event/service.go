@@ -363,6 +363,7 @@ func (s *eventService) isTimeMatch(currentTime, targetTime time.Time, expiration
 }
 
 func (s *eventService) sendNotification(ctx context.Context, event *Event) {
+	
 	tokens, err := s.userService.GetTokenUser(ctx, event.UserID)
 	if err != nil || tokens == nil {
 		log.Printf("❌ GetTokenUser error for user %s: %v", event.UserID, err)
