@@ -282,7 +282,7 @@ func (s *eventService) shouldSendNotification(ev *Event, now time.Time) bool {
 			}
 
 			target := s.subtractOffset(occ, rule).Truncate(time.Minute)
-			candidate := target.Add(time.Duration(k) * interval) // target + k*1'
+			candidate := target.Add(time.Duration(k) * interval) 
 			log.Printf("🎛️ Check rule=%d k=%d: target=%s | candidate=%s | now=%s",
 				ridx, k,
 				target.Format("2006-01-02 15:04:05"),
