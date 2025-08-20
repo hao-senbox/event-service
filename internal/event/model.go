@@ -26,7 +26,7 @@ type Event struct {
 }
 
 type ReminderRule struct {
-	RemiderCount   int64   `bson:"reminder_count" json:"remider_count"`
+	RemiderCount   int64   `bson:"reminder_count" json:"reminder_count"`
 	ReminderBefore string  `bson:"reminder_before" json:"reminder_before"`
 	Enable         bool    `bson:"enable" json:"enable"`
 	Message        *string `bson:"message,omitempty" json:"message,omitempty"`
