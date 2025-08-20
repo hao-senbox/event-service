@@ -8,6 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type EventRepository interface {
@@ -24,6 +25,7 @@ type eventRepository struct {
 }
 
 func NewEventRepository(collection *mongo.Collection) EventRepository {
+	_ = EnsureEventIndexes(context.Background(), collection)
 	return &eventRepository{
 		collection: collection,
 	}
@@ -49,8 +51,7 @@ func (e *eventRepository) FindEventActive(ctx context.Context) ([]*Event, error)
 	fmt.Printf("🔍 Current UTC time: %s\n", now.Format("2006-01-02 15:04:05"))
 
 	filter := bson.M{
-		"is_send":                   true,
-		"reminders.active_reminder": true,
+		"is_send": true,
 		"end_date": bson.M{
 			"$gte": now,
 		},
@@ -133,5 +134,30 @@ func (e *eventRepository) DeleteEvent(ctx context.Context, id primitive.ObjectID
 	}
 
 	return nil
-	
+
+}
+
+func EnsureEventIndexes(ctx context.Context, coll *mongo.Collection) error {
+
+	models := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "is_send", Value: 1},
+				{Key: "is_show", Value: 1},
+				{Key: "end_date", Value: 1},
+			},
+			Options: options.Index().
+				SetName("send_show_end"),
+		},
+		{
+			Keys: bson.D{
+				{Key: "user_id", Value: 1},
+				{Key: "created_at", Value: -1},
+			},
+			Options: options.Index().
+				SetName("by_user_created"),
+		},
+	}
+	_, err := coll.Indexes().CreateMany(ctx, models)
+	return err
 }

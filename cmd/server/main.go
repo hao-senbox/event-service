@@ -63,7 +63,7 @@ func main() {
 	userService := user.NewUserService(consulClient)
 	eventCollection := mongoClient.Database(cfg.MongoDB).Collection("events")
 	eventRepository := event.NewEventRepository(eventCollection)
-	eventService := event.NewEventService(eventRepository, client, userService, c)
+	eventService := event.NewEventService(eventRepository, client, userService)
 	eventHandler := event.NewEventHandler(eventService)
 
 	router := gin.Default()

@@ -151,7 +151,7 @@ func (h *EventHandler) SendEventNotifications(c *gin.Context) {
 		helper.SendError(c, 400, fmt.Errorf("token not found"), helper.ErrInvalidRequest)
 		return
 	}
-	
+
 	ctx := context.WithValue(c, constants.TokenKey, token)
 
 	err := h.eventService.SendEventNotifications(ctx, &req)
