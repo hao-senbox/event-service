@@ -12,7 +12,7 @@ const (
 type APIResponse struct {
 	StatusCode int         `json:"status_code"`
 	Message    string      `json:"message,omitempty"`
-	Data       interface{} `json:"data,omitempty"`
+	Data       interface{} `json:"data"`
 	Error      string      `json:"error,omitempty"`
 	ErrorCode  string      `json:"error_code,omitempty"`
 }

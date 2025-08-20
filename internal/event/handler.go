@@ -35,7 +35,7 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 		return
 	}
 
-	helper.SendSuccess(c, http.StatusCreated, "success", nil)
+	helper.SendSuccess(c, http.StatusCreated, "created event successfully", nil)
 
 }
 
@@ -53,7 +53,7 @@ func (h *EventHandler) GetAllEvents(c *gin.Context) {
 		return
 	}
 
-	helper.SendSuccess(c, http.StatusOK, "success", events)
+	helper.SendSuccess(c, http.StatusOK, "Get all events successfully", events)
 
 }
 
@@ -67,7 +67,7 @@ func (h *EventHandler) GetEventByID(c *gin.Context) {
 		return
 	}
 
-	helper.SendSuccess(c, http.StatusOK, "success", event)
+	helper.SendSuccess(c, http.StatusOK, "Get event successfully", event)
 
 }
 
@@ -93,7 +93,7 @@ func (h *EventHandler) UpdateEvent(c *gin.Context) {
 		return
 	}
 
-	helper.SendSuccess(c, http.StatusOK, "success", nil)
+	helper.SendSuccess(c, http.StatusOK, "Update event successfully", nil)
 }
 
 func (h *EventHandler) DeleteEvent(c *gin.Context) {
@@ -106,7 +106,7 @@ func (h *EventHandler) DeleteEvent(c *gin.Context) {
 		return
 	}
 
-	helper.SendSuccess(c, http.StatusOK, "success", nil)
+	helper.SendSuccess(c, http.StatusOK, "Delete event successfully", nil)
 }
 
 func (h *EventHandler) ToggleSendEventNotifications(c *gin.Context) {
@@ -119,7 +119,7 @@ func (h *EventHandler) ToggleSendEventNotifications(c *gin.Context) {
 		return
 	}
 
-	helper.SendSuccess(c, http.StatusOK, "success", check)
+	helper.SendSuccess(c, http.StatusOK, "Change status successfully", check)
 
 }
 
@@ -133,7 +133,7 @@ func (h *EventHandler) ToggleShowEventNotifications(c *gin.Context) {
 		return
 	}
 
-	helper.SendSuccess(c, http.StatusOK, "success", check)
+	helper.SendSuccess(c, http.StatusOK, "Change status successfully", check)
 
 }
 
@@ -160,5 +160,5 @@ func (h *EventHandler) SendEventNotifications(c *gin.Context) {
 		return
 	}
 
-	helper.SendSuccess(c, http.StatusOK, "success", nil)
+	helper.SendSuccess(c, http.StatusOK, "Send event notifications successfully", nil)
 }
