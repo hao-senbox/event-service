@@ -9,13 +9,13 @@ type CreateEventRequest struct {
 	IsShow bool `json:"is_show"`
 	IsSend bool `json:"is_send"`
 
-	SoundKey        string `bson:"sound_key" json:"sound_key"`
+	SoundKey         string `bson:"sound_key" json:"sound_key"`
 	SoundRepeatTimes int64  `bson:"sound_repeat_times" json:"sound_repeat_times"`
-	Icon            string `json:"icon"`
-	Note            string `json:"note"`
-	Url             string `json:"url"`
+	Icon             string `json:"icon"`
+	Note             string `json:"note"`
+	Url              string `json:"url"`
 
-	Reminders Reminders        `json:"reminder_settings"`
+	Reminders []ReminderRule   `json:"reminder_settings"`
 	Schedule  ScheduleSettings `json:"scheduled_settings"`
 }
 
@@ -37,6 +37,6 @@ type UpdateEventRequest struct {
 	Note             *string `json:"note,omitempty"`
 	Url              *string `json:"url,omitempty"`
 
-	Reminders *Reminders        `json:"reminder_settings,omitempty"`
+	Reminders *[]ReminderRule   `json:"reminder_settings,omitempty"`
 	Schedule  *ScheduleSettings `json:"scheduled_settings,omitempty"`
 }

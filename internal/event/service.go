@@ -79,9 +79,9 @@ func (s *eventService) CreateEvent(ctx context.Context, req *CreateEventRequest)
 		ID:               primitive.NewObjectID(),
 		UserID:           req.UserID,
 		EventName:        req.EventName,
+		IsShow:           req.IsShow,
 		StartDate:        start.In(s.location),
 		EndDate:          end.In(s.location),
-		IsShow:           true,
 		IsSend:           true,
 		Reminders:        req.Reminders,
 		Schedule:         req.Schedule,
@@ -240,15 +240,15 @@ func (s *eventService) shouldSendNotification(ev *Event, now time.Time) bool {
 	}
 
 	repeats := exp
-	if repeats == 0 {
-		repeats = 1
+	if repeats <= 0  {
+		repeats = 0
 	}
 
 	interval := time.Minute
 
 	startHH, startMM := start.Hour(), start.Minute()
 
-	for ridx, rule := range ev.Reminders.Rules {
+	for ridx, rule := range ev.Reminders {
 
 		if !rule.Enable {
 			log.Printf("⏭️ Rule %d inactive (offset=%d %s)", ridx, rule.RemiderCount, rule.ReminderBefore)

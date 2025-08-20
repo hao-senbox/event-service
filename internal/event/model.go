@@ -19,7 +19,7 @@ type Event struct {
 	Icon            string             `bson:"icon" json:"icon"`
 	Note            string             `bson:"note" json:"note"`
 	Url             string             `bson:"url" json:"url"`
-	Reminders       Reminders          `bson:"reminder_settings" json:"reminder_settings"`
+	Reminders       []ReminderRule          `bson:"reminder_settings" json:"reminder_settings"`
 	Schedule        ScheduleSettings   `bson:"scheduled_settings" json:"scheduled_settings"`
 
 	CreatedAt time.Time `bson:"created_at" json:"created_at"`
@@ -33,9 +33,6 @@ type ReminderRule struct {
 	Message        *string `bson:"message,omitempty" json:"message,omitempty"`
 }
 
-type Reminders struct {
-	Rules []ReminderRule `bson:"rules" json:"rules"`
-}
 type DayOption struct {
 	Key   string `bson:"key" json:"key"`
 	Value string `bson:"value" json:"value"`
