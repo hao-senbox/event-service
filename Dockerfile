@@ -44,4 +44,4 @@ COPY ./credentials /root/credentials
 EXPOSE 8015
 
 # Set the entrypoint to wait for MariaDB to be ready before starting the application
-CMD ["/wait-for-it.sh", "event_db:27017", "--", "./api"] 
+CMD ["/wait-for-it.sh", "mongo-main:27017", "--", "./api"] 
