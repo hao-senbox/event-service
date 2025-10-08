@@ -3,11 +3,13 @@ package user
 import (
 	"context"
 	"encoding/json"
+	"event-service/pkg/constants"
+	"event-service/pkg/consul"
 	"fmt"
 	"net/http"
 	"os"
-	"event-service/pkg/constants"
-	"event-service/pkg/consul"
+	"time"
+
 	"github.com/hashicorp/consul/api"
 )
 
@@ -44,16 +46,25 @@ func NewServiceAPI(client *api.Client, serviceName string) *callAPI {
 		return nil
 	}
 
-	service, err := sd.DiscoverService()
-	if err != nil {
-		fmt.Printf("Error discovering service: %v\n", err)
-		return nil
+	var service *api.CatalogService
+
+	for i := 0; i < 10; i++ {
+		service, err = sd.DiscoverService()
+		if err == nil && service != nil {
+			break
+		}
+		fmt.Printf("Waiting for service %s... retry %d/10\n", serviceName, i+1)
+		time.Sleep(3 * time.Second)
+	}
+
+	if service == nil {
+		fmt.Printf("Service %s not found after retries, continuing anyway...\n", serviceName)
 	}
 
 	if os.Getenv("LOCAL_TEST") == "true" {
-        fmt.Println("Running in LOCAL_TEST mode — overriding service address to localhost")
-        service.ServiceAddress = "localhost"
-    }
+		fmt.Println("Running in LOCAL_TEST mode — overriding service address to localhost")
+		service.ServiceAddress = "localhost"
+	}
 
 	return &callAPI{
 		client:       sd,
@@ -67,7 +78,7 @@ func (u *userService) GetTokenUser(ctx context.Context, userID string) (*[]strin
 
 func (u *userService) GetUserInfor(ctx context.Context, userID string) (*UserInfor, error) {
 
-    token, ok := ctx.Value(constants.TokenKey).(string)
+	token, ok := ctx.Value(constants.TokenKey).(string)
 	if !ok {
 		return nil, fmt.Errorf("token not found in context")
 	}
@@ -76,32 +87,32 @@ func (u *userService) GetUserInfor(ctx context.Context, userID string) (*UserInf
 	if err != nil {
 		return nil, err
 	}
-	
-    if data == nil {
-        return nil, fmt.Errorf("no user data found for userID: %s", userID)
-    }
 
-    innerData, ok := data["data"].(map[string]interface{})
-    if !ok {
-        return nil, fmt.Errorf("invalid response format: missing 'data' field")
-    }
+	if data == nil {
+		return nil, fmt.Errorf("no user data found for userID: %s", userID)
+	}
 
-    var roleName string
-    rolesRaw, ok := innerData["roles"].([]interface{})
-    if ok && len(rolesRaw) > 0 {
-        firstRole, ok := rolesRaw[0].(map[string]interface{})
-        if ok {
-            roleName = safeString(firstRole["role_name"])
-        }
-    }
+	innerData, ok := data["data"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid response format: missing 'data' field")
+	}
 
-    return &UserInfor{
-        UserID:   safeString(innerData["id"]),
-        UserName: safeString(innerData["username"]),
-        FullName: safeString(innerData["fullname"]),
-        Avartar:  safeString(innerData["avatar"]),
-        Role:     roleName,
-    }, nil
+	var roleName string
+	rolesRaw, ok := innerData["roles"].([]interface{})
+	if ok && len(rolesRaw) > 0 {
+		firstRole, ok := rolesRaw[0].(map[string]interface{})
+		if ok {
+			roleName = safeString(firstRole["role_name"])
+		}
+	}
+
+	return &UserInfor{
+		UserID:   safeString(innerData["id"]),
+		UserName: safeString(innerData["username"]),
+		FullName: safeString(innerData["fullname"]),
+		Avartar:  safeString(innerData["avatar"]),
+		Role:     roleName,
+	}, nil
 }
 
 func (u *userService) GetAllUser(ctx context.Context) ([]*UserInfor, error) {
@@ -110,7 +121,7 @@ func (u *userService) GetAllUser(ctx context.Context) ([]*UserInfor, error) {
 	if !ok {
 		return nil, fmt.Errorf("token not found in context")
 	}
-	
+
 	data := u.client.GetAllUser(token)
 	if data == nil {
 		return nil, fmt.Errorf("no user data found")
@@ -131,18 +142,16 @@ func (u *userService) GetAllUser(ctx context.Context) ([]*UserInfor, error) {
 	return users, nil
 }
 
-
 func safeString(val interface{}) string {
-    if val == nil {
-        return ""
-    }
-    str, ok := val.(string)
-    if !ok {
-        return ""
-    }
-    return str
+	if val == nil {
+		return ""
+	}
+	str, ok := val.(string)
+	if !ok {
+		return ""
+	}
+	return str
 }
-
 
 func (c *callAPI) GetUserInfor(userID string, token string) (map[string]interface{}, error) {
 
@@ -160,13 +169,12 @@ func (c *callAPI) GetUserInfor(userID string, token string) (map[string]interfac
 	}
 
 	var userData interface{}
-	
+
 	err = json.Unmarshal([]byte(res), &userData)
 	if err != nil {
 		fmt.Printf("Error unmarshalling response: %v\n", err)
 		return nil, err
 	}
-
 
 	myMap := userData.(map[string]interface{})
 
@@ -182,7 +190,6 @@ func (c *callAPI) GetAllUser(token string) []map[string]interface{} {
 		"Authorization": "Bearer " + token,
 	}
 
-	
 	res, err := c.client.CallAPI(c.clientServer, endpoint, http.MethodGet, nil, header)
 	if err != nil {
 		fmt.Printf("Error calling API: %v\n", err)
@@ -212,7 +219,7 @@ func (c *callAPI) GetAllUser(token string) []map[string]interface{} {
 }
 
 func (c *callAPI) getTokenUser(ctx context.Context, userID string) (*[]string, error) {
-	
+
 	token, ok := ctx.Value(constants.TokenKey).(string)
 	if !ok {
 		return nil, fmt.Errorf("token not found in context")

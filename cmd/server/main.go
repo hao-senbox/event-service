@@ -9,7 +9,6 @@ import (
 	"event-service/pkg/consul"
 	"event-service/pkg/firebase"
 	"event-service/pkg/zap"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	consulapi "github.com/hashicorp/consul/api"
 	"github.com/joho/godotenv"
 	"github.com/robfig/cron/v3"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -45,10 +43,6 @@ func main() {
 	mongoClient, err := connectToMongoDB(cfg.MongoURI)
 	if err != nil {
 		logger.Fatalf("Failed to connect to MongoDB: %v", err)
-	}
-
-	if err := waitPassing(consulClient, "go-main-service", 60*time.Second); err != nil {
-		logger.Fatalf("Dependency not ready: %v", err)
 	}
 
 	defer func() {
@@ -127,16 +121,4 @@ func connectToMongoDB(uri string) (*mongo.Client, error) {
 
 	log.Println("Successfully connected to MongoDB")
 	return client, nil
-}
-
-func waitPassing(cli *consulapi.Client, name string, timeout time.Duration) error {
-	dl := time.Now().Add(timeout)
-	for time.Now().Before(dl) {
-		entries, _, err := cli.Health().Service(name, "", true, nil)
-		if err == nil && len(entries) > 0 {
-			return nil // đã sẵn sàng
-		}
-		time.Sleep(2 * time.Second)
-	}
-	return fmt.Errorf("%s not ready in consul", name)
 }
